@@ -65,9 +65,9 @@ async function checkEdgeFunctionsAvailability(): Promise<boolean> {
         longitude: 0,
         chemical_id: 1, // Assuming chemical ID 1 exists
       }),
-      // Short timeout to avoid long waits
-      signal: AbortSignal.timeout(3000),
     }).catch(() => null) // Catch network errors
+
+    console.log("the response in edge function", response);
 
     // If we get a response, and it's NOT a 404, the function path exists.
     edgeFunctionsAvailable = response !== null && response.status !== 404
