@@ -48,3 +48,10 @@ export interface PredictionResult {
     }
   }
 }
+
+// Type for the chemical dropdown options
+export interface ChemicalOption {
+  id: number
+  name: string
+  hazard_type: string
+}

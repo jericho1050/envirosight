@@ -7,44 +7,58 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, AlertCircle, Wind } from "lucide-react"
-import { runPrediction, getWeatherData } from "@/lib/api-client"
-import type { PredictionResult, WeatherData } from "@/lib/types"
+import { runPrediction, getWeatherData, fetchChemicalOptions } from "@/lib/api-client"
+import type { PredictionResult, WeatherData, ChemicalOption } from "@/lib/types"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type L from "leaflet"
 
 interface PredictionPanelProps {
   onPredictionResult: (result: PredictionResult) => void
-  mapRef: React.MutableRefObject<L.Map | null>
-}
-
-interface ChemicalOption {
-  id: number
-  name: string
-  hazard_type: string
+  mapRef: React.RefObject<L.Map> // Changed from MutableRefObject<L.Map | null>
 }
 
 export default function PredictionPanel({ onPredictionResult, mapRef }: PredictionPanelProps) {
   const [chemicals, setChemicals] = useState<ChemicalOption[]>([])
-  const [selectedChemicalId, setSelectedChemicalId] = useState<number>(1)
+  const [selectedChemicalId, setSelectedChemicalId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingChemicals, setLoadingChemicals] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [weather, setWeather] = useState<WeatherData | null>(null)
 
   useEffect(() => {
-    // In a real implementation, this would fetch from Supabase
-    // For now, we'll use hardcoded values that match our database
-    setChemicals([
-      { id: 1, name: "Ammonia Gas", hazard_type: "gas" },
-      { id: 2, name: "Chlorine Gas", hazard_type: "gas" },
-      { id: 3, name: "Crude Oil", hazard_type: "liquid" },
-      { id: 4, name: "Benzene", hazard_type: "liquid" },
-      { id: 5, name: "Sulfur Dioxide", hazard_type: "gas" },
-    ])
-  }, [])
+    console.log("🚀 PredictionPanel useEffect running");
+    // Fetch chemicals from Supabase
+    const loadChemicals = async () => {
+      console.log("⏳ Starting loadChemicals...");
+      setLoadingChemicals(true)
+      try {
+        console.log("📡 Calling fetchChemicalOptions...");
+        const options = await fetchChemicalOptions()
+        console.log("✅ Chemical Options fetched in component:", options) // Renamed log for clarity
+        setChemicals(options)
+        // Set default selection to the first chemical if available
+        if (options.length > 0 && selectedChemicalId === null) {
+          setSelectedChemicalId(options[0].id)
+        }
+      } catch (fetchError) {
+        console.error("❌ Failed to load chemical options:", fetchError)
+        setError("Could not load chemical options. Please try refreshing.")
+      } finally {
+        setLoadingChemicals(false)
+      }
+    }
+
+    loadChemicals()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // <-- Run only once on mount
 
   const handleSimulate = async () => {
-    if (!mapRef.current) {
+    if (!mapRef.current) {  
       console.error("Map reference is not available")
+      return
+    }
+    if (selectedChemicalId === null) {
+      setError("Please select a chemical first.")
       return
     }
 
@@ -71,7 +85,7 @@ export default function PredictionPanel({ onPredictionResult, mapRef }: Predicti
       console.log("🧪 Selected chemical:", selectedChemical)
 
       if (!selectedChemical) {
-        throw new Error("Selected chemical not found")
+        throw new Error("Selected chemical not found or list not loaded")
       }
 
       // Run the prediction
@@ -123,18 +137,25 @@ export default function PredictionPanel({ onPredictionResult, mapRef }: Predicti
           <div className="space-y-2">
             <label className="text-sm font-medium">Hazard Type</label>
             <Select
-              value={selectedChemicalId.toString()}
+              value={selectedChemicalId !== null ? selectedChemicalId.toString() : ""}
               onValueChange={(value) => setSelectedChemicalId(Number(value))}
+              disabled={loadingChemicals || chemicals.length === 0}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select hazard type" />
+                <SelectValue placeholder={loadingChemicals ? "Loading chemicals..." : "Select hazard type"} />
               </SelectTrigger>
               <SelectContent>
-                {chemicals.map((chemical) => (
-                  <SelectItem key={chemical.id} value={chemical.id.toString()}>
-                    {chemical.name}
-                  </SelectItem>
-                ))}
+                {loadingChemicals ? (
+                  <SelectItem value="loading" disabled>Loading...</SelectItem>
+                ) : chemicals.length === 0 ? (
+                  <SelectItem value="no-chemicals" disabled>No chemicals available</SelectItem>
+                ) : (
+                  chemicals.map((chemical) => (
+                    <SelectItem key={chemical.id} value={chemical.id.toString()}>
+                      {chemical.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -157,7 +178,11 @@ export default function PredictionPanel({ onPredictionResult, mapRef }: Predicti
       </CardContent>
 
       <CardFooter>
-        <Button onClick={handleSimulate} disabled={loading} className="w-full">
+        <Button 
+          onClick={handleSimulate} 
+          disabled={loading || loadingChemicals || selectedChemicalId === null}
+          className="w-full"
+        >
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {loading ? "Simulating..." : "Simulate Dispersion"}
         </Button>

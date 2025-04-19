@@ -1,4 +1,6 @@
 import type { HazardSite, AQIStation, PredictionResult, WeatherData } from "./types"
+import { createClient } from '@supabase/supabase-js'
+import type { ChemicalOption } from "./types"
 
 // Base URL for Supabase Edge Functions
 const EDGE_FUNCTION_URL = process.env.NEXT_PUBLIC_SUPABASE_FUNCTION_URL || ""
@@ -193,7 +195,7 @@ export async function getWeatherData(location: {
       const response = await fetch(`${EDGE_FUNCTION_URL}/get-weather-data`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ lat: location.lat, lon: location.lng }),
+       body: JSON.stringify({ latitude: location.lat, longitude: location.lng }),
       })
 
       if (!response.ok) {
@@ -376,6 +378,53 @@ function clientSidePrediction(
   console.log("🔄 Client-side prediction result:", result)
   return result
 }
+
+// --- Add this new function --- 
+/**
+ * Fetches the list of available chemicals for the prediction panel dropdown.
+ */
+export async function fetchChemicalOptions(): Promise<ChemicalOption[]> {
+  // Determine base Supabase URL (project URL), falling back to function URL by stripping the /functions path
+  const functionUrl = process.env.NEXT_PUBLIC_SUPABASE_FUNCTION_URL || ""
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || functionUrl.replace(/\/functions.*$/, "")
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn("Supabase URL or Anon Key missing for fetching chemicals.")
+    return [] // Return empty array or throw error
+  }
+
+  // Create a Supabase client instance
+  const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+  try {
+    const { data, error } = await supabase
+      .from("chemical_properties") // Ensure this table name is correct
+      .select("id, name, hazard_type") // Ensure these column names are correct
+
+    if (error) {
+      console.error("Supabase error fetching chemicals:", error)
+      throw error
+    }
+
+    console.log("🧪 Chemicals fetched from Supabase:", data) // <-- ADD THIS LOG
+
+    // Map the data to the ChemicalOption type
+    const options: ChemicalOption[] = data
+      ? data.map((item) => ({
+          id: item.id,
+          name: item.name,
+          hazard_type: item.hazard_type,
+        }))
+      : []
+
+    return options
+  } catch (err) {
+    console.error("Error in fetchChemicalOptions:", err)
+    return [] // Return empty on error
+  }
+}
+// --- End of new function ---
 
 // Mock data for development
 const mockHazardSites: HazardSite[] = [
