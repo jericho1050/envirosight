@@ -14,7 +14,7 @@ import type L from "leaflet"
 
 interface PredictionPanelProps {
   onPredictionResult: (result: PredictionResult) => void
-  mapRef: React.RefObject<L.Map> // Changed from MutableRefObject<L.Map | null>
+  mapRef: React.RefObject<L.Map | null>
 }
 
 export default function PredictionPanel({ onPredictionResult, mapRef }: PredictionPanelProps) {
