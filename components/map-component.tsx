@@ -191,13 +191,32 @@ export default function MapComponent() {
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
+      // Get initial map bounds (or default if map isn't ready)
+      const bounds = mapRef.current ? mapRef.current.getBounds().toBBoxString() : undefined;
+      const defaultBounds = { north: 50, south: 25, east: -65, west: -125 }; // Fallback
+
+      // Helper to parse bounds string or use default
+      const parseBounds = (bboxString?: string) => {
+          if (!bboxString) return defaultBounds;
+          const [west, south, east, north] = bboxString.split(",").map(Number);
+          // Basic validation, return default if invalid
+          if (isNaN(west) || isNaN(south) || isNaN(east) || isNaN(north)) {
+              console.warn("Invalid bounds string, using default bounds:", bboxString);
+              return defaultBounds;
+          }
+          return { north, south, east, west };
+      };
+
+      const currentBounds = parseBounds(bounds);
+
       try {
         setLoading(true)
         setError(null)
 
-        // Fetch hazard sites
+        // Fetch hazard sites using current map bounds
         try {
-          const sites = await fetchHazardSites()
+          console.log("Fetching hazard sites with bounds:", currentBounds);
+          const sites = await fetchHazardSites(currentBounds);
           setHazardSites(sites)
 
           // Check if we're using mock data
@@ -279,11 +298,29 @@ export default function MapComponent() {
     setError(null)
     setDataSource("api")
 
+    // Get current map bounds for retry
+    const bounds = mapRef.current ? mapRef.current.getBounds().toBBoxString() : undefined;
+    const defaultBounds = { north: 50, south: 25, east: -65, west: -125 }; // Fallback
+
+    // Helper to parse bounds string or use default (same as above)
+    const parseBounds = (bboxString?: string) => {
+        if (!bboxString) return defaultBounds;
+        const [west, south, east, north] = bboxString.split(",").map(Number);
+        if (isNaN(west) || isNaN(south) || isNaN(east) || isNaN(north)) {
+            console.warn("Invalid bounds string on retry, using default bounds:", bboxString);
+            return defaultBounds;
+        }
+        return { north, south, east, west };
+    };
+
+    const currentBounds = parseBounds(bounds);
+
     // Re-run the effect
     const loadData = async () => {
       try {
-        // Fetch hazard sites
-        const sites = await fetchHazardSites()
+        // Fetch hazard sites with current bounds
+        console.log("Retrying fetch hazard sites with bounds:", currentBounds);
+        const sites = await fetchHazardSites(currentBounds);
         setHazardSites(sites)
 
         // Check if we're using mock data
@@ -364,10 +401,6 @@ export default function MapComponent() {
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-40 bg-white rounded-lg shadow-md p-4 max-w-sm">
-        <PredictionPanel onPredictionResult={handlePredictionResult} mapRef={mapRef} />
-      </div>
-
       <MapContainer
         center={[39.8283, -98.5795]}
         zoom={4}
@@ -431,13 +464,18 @@ export default function MapComponent() {
         )}
       </MapContainer>
 
-      {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-40 bg-white rounded-lg shadow-md p-3">
+      {/* Legend - Moved to bottom-left */}
+      <div className="absolute bottom-4 left-4 z-40 bg-white rounded-lg shadow-md p-3">
         <h4 className="text-sm font-medium mb-2">Legend</h4>
         <div className="space-y-2">
           <div className="flex items-center">
             <div className="w-3 h-3 rounded-full bg-red-500 border border-white mr-2"></div>
             <span className="text-xs">Hazard Site</span>
+          </div>
+          {/* Add prediction polygon color to legend */}
+          <div className="flex items-center">
+            <div className="w-3 h-3" style={{ backgroundColor: '#3b82f6', opacity: 0.6 }}></div> {/* Example blue */}            
+            <span className="text-xs ml-2">Prediction Area</span>
           </div>
           <div className="flex items-center">
             <div className="w-3 h-3 rounded-full bg-green-500 border border-white mr-2"></div>
@@ -451,7 +489,13 @@ export default function MapComponent() {
             <div className="w-3 h-3 rounded-full bg-orange-500 border border-white mr-2"></div>
             <span className="text-xs">Unhealthy AQI (101-150)</span>
           </div>
+          {/* Add other AQI levels if needed */}
         </div>
+      </div>
+
+      {/* PredictionPanel in bottom-right */}
+      <div className="absolute bottom-4 right-4 z-40 bg-white rounded-lg shadow-md p-4 max-w-sm">
+        <PredictionPanel onPredictionResult={handlePredictionResult} mapRef={mapRef} />
       </div>
     </div>
   )
