@@ -188,77 +188,97 @@ export default function MapComponent() {
   })
   const mapRef = useRef<L.Map | null>(null)
 
-  // Load initial data
-  useEffect(() => {
-    const loadData = async () => {
-      // Get initial map bounds (or default if map isn't ready)
-      const bounds = mapRef.current ? mapRef.current.getBounds().toBBoxString() : undefined;
-      const defaultBounds = { north: 50, south: 25, east: -65, west: -125 }; // Fallback
+  // --- Reusable Data Loading Function ---
+  const loadMapData = useCallback(async (bounds: L.LatLngBounds | undefined) => {
+    setLoading(true);
+    setError(null);
+    setDataSource("api"); // Assume API initially
 
-      // Helper to parse bounds string or use default
-      const parseBounds = (bboxString?: string) => {
-          if (!bboxString) return defaultBounds;
-          const [west, south, east, north] = bboxString.split(",").map(Number);
-          // Basic validation, return default if invalid
-          if (isNaN(west) || isNaN(south) || isNaN(east) || isNaN(north)) {
-              console.warn("Invalid bounds string, using default bounds:", bboxString);
-              return defaultBounds;
-          }
-          return { north, south, east, west };
+    // Define default bounds if none provided (e.g., initial load)
+    const defaultBounds = { north: 50, south: 25, east: -65, west: -125 }; // Centered on US
+
+    // Determine bounds to use
+    let apiBounds = defaultBounds;
+    if (bounds) {
+      apiBounds = {
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
       };
-
-      const currentBounds = parseBounds(bounds);
-
-      try {
-        setLoading(true)
-        setError(null)
-
-        // Fetch hazard sites using current map bounds
-        try {
-          console.log("Fetching hazard sites with bounds:", currentBounds);
-          const sites = await fetchHazardSites(currentBounds);
-          setHazardSites(sites)
-
-          // Check if we're using mock data
-          if (sites === mockHazardSites) {
-            setDataSource("mock")
-          }
-        } catch (err) {
-          console.error("Error loading hazard sites:", err)
-          setError("Failed to load hazard site data. Using mock data instead.")
-          setHazardSites(mockHazardSites)
-          setDataSource("mock")
-        }
-
-        // Fetch AQI data
-        try {
-          const aqi = await fetchAQIData({
-            north: 50,
-            south: 25,
-            east: -65,
-            west: -125,
-          })
-          setAqiStations(aqi)
-
-          // If hazard sites didn't set mock mode but AQI did
-          if (dataSource !== "mock" && aqi === mockAQIStations) {
-            setDataSource("mock")
-          }
-        } catch (err) {
-          console.error("Error loading AQI data:", err)
-          if (!error) {
-            setError("Failed to load air quality data. Using mock data instead.")
-          }
-          setAqiStations(mockAQIStations)
-          setDataSource("mock")
-        }
-      } finally {
-        setLoading(false)
-      }
+    } else {
+        console.warn("loadMapData called without bounds, using default US bounds.");
     }
 
-    loadData()
-  }, [])
+    console.log("🌍 Loading data for bounds:", apiBounds);
+
+    let currentDataSource: "api" | "mock" = "api";
+    let encounteredError: string | null = null;
+
+    try {
+      // Fetch hazard sites
+      try {
+        console.log("Fetching hazard sites with bounds:", apiBounds);
+        const sites = await fetchHazardSites(apiBounds);
+        setHazardSites(sites);
+        // Check if mock data was returned (implementation specific)
+        // Assuming fetchHazardSites returns a specific mock array instance on fallback
+        // This check might need adjustment based on api-client.ts logic
+        if (sites === mockHazardSites) {
+           console.log("Using mock hazard sites.");
+           currentDataSource = "mock";
+        }
+      } catch (err) {
+        console.error("Error loading hazard sites:", err);
+        encounteredError = "Failed to load hazard site data.";
+        setHazardSites(mockHazardSites); // Fallback to mock
+        currentDataSource = "mock";
+      }
+
+      // Fetch AQI data
+      try {
+        console.log("Fetching AQI data with bounds:", apiBounds);
+        const aqi = await fetchAQIData(apiBounds);
+        setAqiStations(aqi);
+         // Check if mock data was returned (implementation specific)
+        if (aqi === mockAQIStations) {
+            console.log("Using mock AQI stations.");
+            currentDataSource = "mock";
+        }
+      } catch (err) {
+        console.error("Error loading AQI data:", err);
+        // Append error message if hazard sites also failed
+        encounteredError = encounteredError ? `${encounteredError} Also failed to load AQI data.` : "Failed to load air quality data.";
+        setAqiStations(mockAQIStations); // Fallback to mock
+        currentDataSource = "mock";
+      }
+
+      // Update final state
+      setDataSource(currentDataSource);
+      if (encounteredError) {
+          setError(`${encounteredError} Displaying mock data instead.`);
+      }
+
+    } catch (globalErr) { // Catch any unexpected errors during the process
+        console.error("Unexpected error loading map data:", globalErr);
+        setError("An unexpected error occurred while loading map data. Using mock data.");
+        setHazardSites(mockHazardSites);
+        setAqiStations(mockAQIStations);
+        setDataSource("mock");
+    } finally {
+      setLoading(false);
+    }
+  // mapRef dependency is potentially problematic if it causes too many re-renders.
+  // However, we need it to get bounds initially. Fine-tune if needed.
+  }, [mapRef]); // Add dependencies if necessary, carefully
+
+  // Load initial data
+  useEffect(() => {
+    // Get initial map bounds when the component mounts
+    // Use a slight delay or check if mapRef is ready if needed
+    const initialBounds = mapRef.current?.getBounds();
+    loadMapData(initialBounds);
+  }, [loadMapData]); // Depend on the memoized loadMapData function
 
   // Handle layer visibility toggle - Fix indexing logic
   const toggleLayer = (layerName: string) => {
@@ -294,65 +314,9 @@ export default function MapComponent() {
 
   // Retry loading data
   const retryLoadData = () => {
-    setLoading(true)
-    setError(null)
-    setDataSource("api")
-
-    // Get current map bounds for retry
-    const bounds = mapRef.current ? mapRef.current.getBounds().toBBoxString() : undefined;
-    const defaultBounds = { north: 50, south: 25, east: -65, west: -125 }; // Fallback
-
-    // Helper to parse bounds string or use default (same as above)
-    const parseBounds = (bboxString?: string) => {
-        if (!bboxString) return defaultBounds;
-        const [west, south, east, north] = bboxString.split(",").map(Number);
-        if (isNaN(west) || isNaN(south) || isNaN(east) || isNaN(north)) {
-            console.warn("Invalid bounds string on retry, using default bounds:", bboxString);
-            return defaultBounds;
-        }
-        return { north, south, east, west };
-    };
-
-    const currentBounds = parseBounds(bounds);
-
-    // Re-run the effect
-    const loadData = async () => {
-      try {
-        // Fetch hazard sites with current bounds
-        console.log("Retrying fetch hazard sites with bounds:", currentBounds);
-        const sites = await fetchHazardSites(currentBounds);
-        setHazardSites(sites)
-
-        // Check if we're using mock data
-        if (sites === mockHazardSites) {
-          setDataSource("mock")
-        }
-
-        // Fetch AQI data
-        const aqi = await fetchAQIData({
-          north: 50,
-          south: 25,
-          east: -65,
-          west: -125,
-        })
-        setAqiStations(aqi)
-
-        // If hazard sites didn't set mock mode but AQI did
-        if (dataSource !== "mock" && aqi === mockAQIStations) {
-          setDataSource("mock")
-        }
-
-        setError(null)
-      } catch (err) {
-        console.error("Error reloading data:", err)
-        setError("Failed to load data. Using mock data instead.")
-        setDataSource("mock")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadData()
+    console.log("🔄 Retrying data load...");
+    const currentBounds = mapRef.current?.getBounds();
+    loadMapData(currentBounds); // Use the reusable function with current bounds
   }
 
   return (
@@ -392,7 +356,13 @@ export default function MapComponent() {
         <SearchLocation
           onLocationFound={(lat, lng) => {
             if (mapRef.current) {
+              console.log(`🚀 Location found via search: ${lat}, ${lng}. Reloading data.`);
               mapRef.current.setView([lat, lng], 10)
+              // Use a timeout to allow the map view to settle before getting bounds
+              setTimeout(() => {
+                const newBounds = mapRef.current?.getBounds();
+                loadMapData(newBounds);
+              }, 500); // Adjust delay as needed
             }
           }}
         />
