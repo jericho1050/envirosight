@@ -84,24 +84,45 @@ async function checkEdgeFunctionsAvailability(): Promise<boolean> {
   }
 }
 
-// Fetch hazard sites from Supabase
-export async function fetchHazardSites(): Promise<HazardSite[]> {
+// Fetch hazard sites from Supabase within the given map bounds.
+export async function fetchHazardSites(bounds: {
+  north: number
+  south: number
+  east: number
+  west: number
+} | undefined): Promise<HazardSite[]> { // Allow bounds to be potentially undefined
+  // --- BEGIN ADDED CHECK ---
+  // Check if bounds are valid before proceeding
+  if (!bounds || bounds.north === undefined || bounds.south === undefined || bounds.east === undefined || bounds.west === undefined) {
+    console.warn("fetchHazardSites called with invalid or undefined bounds. Returning mock data.", bounds);
+    // Return mock data immediately (or an empty array if preferred)
+    // Note: Filtering mock data here might not make sense if bounds are invalid.
+    return mockHazardSites; // Consider returning [] if mock data shouldn't be shown without valid bounds
+  }
+  // --- END ADDED CHECK ---
+
   try {
     // Check if edge functions are available before attempting API call
     const available = await checkEdgeFunctionsAvailability()
 
     if (!available) {
       console.info("Using mock hazard sites data")
-      return mockHazardSites
+      // Return only mock sites within the requested bounds (optional, but good practice)
+      return mockHazardSites.filter(site =>
+        site.latitude <= bounds.north &&
+        site.latitude >= bounds.south &&
+        site.longitude <= bounds.east &&
+        site.longitude >= bounds.west
+      );
     }
 
     return await retryWithBackoff(async () => {
-      console.log("Fetching hazard sites from:", `${EDGE_FUNCTION_URL}/get-hazard-sites`)
+      console.log("Fetching hazard sites from:", `${EDGE_FUNCTION_URL}/get-hazard-sites`, "with bounds:", bounds) // Log bounds
 
       const response = await fetch(`${EDGE_FUNCTION_URL}/get-hazard-sites`, {
         method: "POST",
         headers,
-        body: JSON.stringify({}),
+        body: JSON.stringify(bounds), // Send the bounds in the body
       })
 
       if (!response.ok) {
@@ -111,6 +132,11 @@ export async function fetchHazardSites(): Promise<HazardSite[]> {
         if (response.status === 404) {
           throw new Error(`Endpoint not found: /get-hazard-sites. Please check if the function is deployed.`)
         }
+        // Specific check for 400 related to bounds
+        if (response.status === 400 && errorText.includes("Missing map bounds")) {
+             console.error("API Error: The server reported missing map bounds. Check if the bounds object is correctly passed:", bounds);
+             throw new Error(`API error: 400 - Missing map bounds. Client sent: ${JSON.stringify(bounds)}`);
+        }
 
         throw new Error(`API error: ${response.status} - ${errorText}`)
       }
@@ -119,8 +145,14 @@ export async function fetchHazardSites(): Promise<HazardSite[]> {
     })
   } catch (error) {
     console.error("Error fetching hazard sites (using mock data):", error)
-    // Always fall back to mock data
-    return mockHazardSites
+    // Fallback logic: Filter mock data using the validated bounds
+    // The initial check should ensure bounds are valid here, but keep filter for clarity
+    return mockHazardSites.filter(site =>
+        site.latitude <= bounds.north &&
+        site.latitude >= bounds.south &&
+        site.longitude <= bounds.east &&
+        site.longitude >= bounds.west
+      );
   }
 }
 
@@ -195,7 +227,7 @@ export async function getWeatherData(location: {
       const response = await fetch(`${EDGE_FUNCTION_URL}/get-weather-data`, {
         method: "POST",
         headers,
-       body: JSON.stringify({ latitude: location.lat, longitude: location.lng }),
+       body: JSON.stringify({ lat: location.lat, lon: location.lng }), // Corrected keys
       })
 
       if (!response.ok) {
