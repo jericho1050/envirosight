@@ -2,7 +2,7 @@
 
 EnviroSight is a web application designed to visualize environmental data, including potential hazard sites and real-time Air Quality Index (AQI) stations. It also features a predictive modeling component to simulate the dispersion of selected chemical hazards based on current weather conditions at a chosen location.
 
-![Screenshot of EnviroSight Map Interface](public/placeholderApp.jpg) <!-- Replace with an actual screenshot -->
+![Image](https://github.com/user-attachments/assets/9b35c8a9-996c-4b69-8a09-ae00187d6ff8)
 
 https://github.com/user-attachments/assets/88f51d83-548a-49a1-9c55-9fe9e502bdba
 
@@ -48,49 +48,7 @@ https://github.com/user-attachments/assets/88f51d83-548a-49a1-9c55-9fe9e502bdba
 
 The application follows a client-server architecture utilizing Supabase for backend services and Next.js for the frontend.
 
-```mermaid
-flowchart TD
-    subgraph ClientSide
-        MC[MapComponent] --> LMD[loadMapData]
-        LMD --> FHS[fetchHazardSites]
-        LMD --> FAQID[fetchAQIData]
-        FAQID --> GLNFC[getLocationName]
-        GLNFC --> FAQIDBC[fetchAQIByCity]
-        PP[PredictionPanel] --> GWD[getWeatherData]
-        PP --> RP[runPrediction]
-        PP --> FCO[fetchChemicalOptions]
-        RP --> CSP[clientPrediction]
-    end
-
-    subgraph SupabaseBackend
-        GHS[getHazardSitesFn]
-        GAQD[getAQIDataFn]
-        GAQDC[getAQIByCityFn]
-        GWDf[getWeatherDataFn]
-        RDP[runPredictionFn]
-        DB[(Database)]
-    end
-
-    subgraph ExternalAPIs
-        WAQI[WAQI API]
-        OWM[OpenWeatherMap API]
-        NOM[Nominatim API]
-    end
-
-    FHS --> GHS
-    FAQID --> GAQD
-    FAQIDBC --> GAQDC
-    GWD --> GWDf
-    RP --> RDP
-    FCO --> DB
-
-    GHS --> DB
-    GAQD --> WAQI
-    GAQDC --> WAQI
-    GWDf --> OWM
-    RDP --> GWDf
-    RDP --> DB
-```
+![Image](https://github.com/user-attachments/assets/b951f963-df12-48b1-b970-79f354820eef)
 
 -   **Frontend (Client-Side):** A Next.js application responsible for rendering the user interface, managing map interactions, and communicating with the backend.
 -   **Backend (Supabase):**
