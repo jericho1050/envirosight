@@ -10,7 +10,7 @@ import LayerControl from "./layer-control"
 import PredictionPanel from "./prediction-panel"
 import type { HazardSite, AQIStation, PredictionResult } from "@/lib/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, AlertCircle, Info } from "lucide-react"
+import { Loader2, AlertCircle, Info, TriangleAlert } from "lucide-react"
 import SearchLocation from "./search-location"
 import { Button } from "@/components/ui/button"
 
@@ -187,6 +187,7 @@ export default function MapComponent() {
     prediction: true,
   })
   const mapRef = useRef<L.Map | null>(null)
+  const [aqiDataStatus, setAqiDataStatus] = useState<"ok" | "empty" | "error">("ok")
 
   // --- Reusable Data Loading Function ---
   const loadMapData = useCallback(async (bounds: L.LatLngBounds | undefined) => {
@@ -239,6 +240,7 @@ export default function MapComponent() {
       try {
         console.log("Fetching AQI data with bounds:", apiBounds);
         const aqi = await fetchAQIData(apiBounds);
+        console.log("✅ AQI data received after search/pan:", aqi); // <-- ADD THIS LOG
         setAqiStations(aqi);
          // Check if mock data was returned (implementation specific)
         if (aqi === mockAQIStations) {
@@ -351,6 +353,19 @@ export default function MapComponent() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* MODIFIED: Data Limitations Alert - Made smaller and moved to top-left */}
+      <Alert variant="default" className="absolute top-20 left-4 z-40 max-w-[220px] py-2 px-3 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs">
+        <div className="flex items-start">
+          <TriangleAlert className="h-3 w-3 !text-yellow-800 mt-0.5 mr-1.5" />
+          <div>
+            <AlertTitle className="text-xs font-semibold mb-0.5">Data Limitations</AlertTitle>
+            <AlertDescription className="text-xs leading-tight">
+              AQI and hazard site data may be incomplete in some regions.
+            </AlertDescription>
+          </div>
+        </div>
+      </Alert>
 
       <div className="absolute top-4 left-4 z-40 bg-white rounded-lg shadow-md p-4 max-w-xs">
         <SearchLocation
