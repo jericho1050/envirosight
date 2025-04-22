@@ -183,20 +183,18 @@ You will need these for the frontend environment variables.
     ```
 
 3.  **Create Environment File:**
-    Create a file named `.env.local` in the root of the project directory.
+    Create a file named `.env` in the root of the project directory.
 
 4.  **Add Environment Variables:**
-    Populate `.env.local` with the values obtained from your Supabase project:
+    Populate `.env` with the values obtained from your Supabase project:
     ```ini
-    NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_PUBLIC_KEY
-    NEXT_PUBLIC_SUPABASE_FUNCTION_URL=YOUR_SUPABASE_FUNCTIONS_INVOCATION_URL
+    NEXT_PUBLIC_SUPABASE_FUNCTION_URL=https://yourproject.supabase.co/functions/v1
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=YOURS_HERE
     ```
     Replace the placeholder values with your actual Supabase credentials.
 
 ## Environment Variables
 
--   `NEXT_PUBLIC_SUPABASE_URL`: The URL of your Supabase project. Used by `fetchChemicalOptions` to query the database directly.
 -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: The public anonymous key for your Supabase project. Used for authenticating requests to the database and Edge Functions.
 -   `NEXT_PUBLIC_SUPABASE_FUNCTION_URL`: The base URL for invoking your deployed Supabase Edge Functions (e.g., `https://<project-ref>.supabase.co/functions/v1`).
 
@@ -204,7 +202,7 @@ You will need these for the frontend environment variables.
 
 ## Running Locally
 
-Once the backend is deployed and the frontend `.env.local` file is configured:
+Once the backend is deployed and the frontend `.env` file is configured:
 
 1.  **Start the development server:**
     ```bash
