@@ -10,10 +10,11 @@ import LayerControl from "./layer-control"
 import PredictionPanel from "./prediction-panel"
 import type { HazardSite, AQIStation, PredictionResult } from "@/lib/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, AlertCircle, Info, TriangleAlert, GripVertical } from "lucide-react"
+import { Loader2, AlertCircle, Info, TriangleAlert, GripVertical, Menu } from "lucide-react"
 import SearchLocation from "./search-location"
 import { Button } from "@/components/ui/button"
 import DraggableWrapper from "./draggable-wrapper"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 // Fix Leaflet icon issues in Next.js
 const createDefaultIcon = () => {
@@ -58,6 +59,7 @@ function LocationFinder() {
   const map = useMap()
   const [locationStatus, setLocationStatus] = useState<"idle" | "requesting" | "success" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const isMobile = useIsMobile()
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -73,6 +75,11 @@ function LocationFinder() {
         const { latitude, longitude } = position.coords
         map.setView([latitude, longitude], 10)
         setLocationStatus("success")
+        
+        // Reset success status after a short time
+        setTimeout(() => {
+          setLocationStatus("idle")
+        }, 2000)
       },
       (error) => {
         console.error("Error getting location:", error)
@@ -105,7 +112,7 @@ function LocationFinder() {
   }, [map])
 
   return (
-    <div className="leaflet-top leaflet-left mt-16">
+    <div className={`leaflet-top ${isMobile ? 'leaflet-right mt-16 mr-2' : 'leaflet-left mt-16'}`}>
       <div className="leaflet-control leaflet-bar">
         {locationStatus === "idle" && (
           <button
@@ -145,9 +152,26 @@ function LocationFinder() {
             </svg>
           </div>
         )}
+        
+        {locationStatus === "success" && (
+          <div className="bg-white p-2 rounded-md shadow-md flex items-center justify-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-green-500"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        )}
 
         {locationStatus === "error" && errorMessage && (
-          <div className="absolute top-20 left-4 right-4 bg-white p-3 rounded-md shadow-md z-50">
+          <div className={`absolute ${isMobile ? 'top-20 left-2 right-2' : 'top-20 left-4 right-4'} bg-white p-3 rounded-md shadow-md z-50`}>
             <div className="flex items-start">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -189,6 +213,9 @@ export default function MapComponent() {
   })
   const mapRef = useRef<L.Map | null>(null)
   const [aqiDataStatus, setAqiDataStatus] = useState<"ok" | "empty" | "error">("ok")
+  const isMobile = useIsMobile()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobilePanelView, setMobilePanelView] = useState<"controls" | "prediction">("controls")
 
   // --- Reusable Data Loading Function ---
   const loadMapData = useCallback(async (bounds: L.LatLngBounds | undefined) => {
@@ -322,6 +349,15 @@ export default function MapComponent() {
     loadMapData(currentBounds); // Use the reusable function with current bounds
   }
 
+  const toggleMobilePanel = (view: "controls" | "prediction") => {
+    if (mobilePanelView === view && mobileMenuOpen) {
+      setMobileMenuOpen(false);
+    } else {
+      setMobilePanelView(view);
+      setMobileMenuOpen(true);
+    }
+  };
+
   return (
     <div className="relative h-screen w-full">
       {loading && (
@@ -332,8 +368,10 @@ export default function MapComponent() {
       )}
 
       {error && (
-        // Change variant to "destructive"
-        <Alert variant="destructive" className="absolute top-4 right-4 z-50 max-w-md">
+        <Alert 
+          variant="destructive" 
+          className={`absolute z-50 ${isMobile ? 'top-16 left-2 right-2' : 'top-4 right-4 max-w-md'}`}
+        >
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Data Loading Issue</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
@@ -346,7 +384,9 @@ export default function MapComponent() {
       )}
 
       {dataSource === "mock" && !error && (
-        <Alert className="absolute top-4 right-4 z-50 max-w-md">
+        <Alert 
+          className={`absolute z-50 ${isMobile ? 'top-16 left-2 right-2' : 'top-4 right-4 max-w-md'}`}
+        >
           <Info className="h-4 w-4" />
           <AlertTitle>Using Demo Data</AlertTitle>
           <AlertDescription>
@@ -355,57 +395,179 @@ export default function MapComponent() {
         </Alert>
       )}
 
-      {/* MODIFIED: Data Limitations Alert - Made smaller and with same width as legend */}
-      <Alert variant="default" className="absolute bottom-40 left-4 z-40 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs py-2 px-3 w-auto">
-        <div className="flex items-start">
-          <TriangleAlert className="h-3 w-3 !text-yellow-800 mt-0.5 mr-1.5" />
-          <div>
-            <AlertTitle className="text-xs font-semibold mb-0.5">Data Limitations</AlertTitle>
-            <AlertDescription className="text-xs leading-tight">
-              AQI and hazard site data may be incomplete in some regions.
-            </AlertDescription>
+      {/* MODIFIED: Data Limitations Alert - Responsive position */}
+      {!isMobile && (
+        <Alert variant="default" className="absolute bottom-50 left-4 z-40 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs py-2 px-3 w-44">
+          <div className="flex items-start">
+            <TriangleAlert className="h-3 w-3 !text-yellow-800 mt-0.5 mr-1.5" />
+            <div>
+              <AlertTitle className="text-xs font-semibold mb-0.5">Data Limitations</AlertTitle>
+              <AlertDescription className="text-xs leading-tight">
+                AQI and hazard site data may be incomplete in some regions.
+              </AlertDescription>
+            </div>
           </div>
-        </div>
-      </Alert>
+        </Alert>
+      )}
 
-      {/* Draggable Search and Layer Control Panel */}
-      <DraggableWrapper
-        handle=".drag-handle-panel"
-        bounds="parent" // Keep it within the map container
-        defaultPosition={{ x: 16, y: 16 }} // Corresponds to top-4 left-4
-      >
-        <div className="absolute z-40 bg-white rounded-lg shadow-md p-4 w-2xs pointer-events-auto">
-          {/* Drag Handle */}
-          <div className="drag-handle-panel cursor-move absolute top-2 right-2 text-gray-400 hover:text-gray-600">
-            <GripVertical size={16} />
+      {/* Mobile Controls */}
+      {isMobile && (
+        <div className="absolute top-2 right-2 z-50 flex gap-2">
+          <Button 
+            variant={mobilePanelView === "controls" && mobileMenuOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => toggleMobilePanel("controls")}
+            className="rounded-full p-2 h-10 w-10 flex items-center justify-center shadow-md bg-white"
+          >
+            <Menu size={18} />
+          </Button>
+          <Button 
+            variant={mobilePanelView === "prediction" && mobileMenuOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => toggleMobilePanel("prediction")}
+            className="rounded-full p-2 h-10 w-10 flex items-center justify-center shadow-md bg-white"
+          >
+            <TriangleAlert size={18} />
+          </Button>
+        </div>
+      )}
+
+      {/* Responsive panels */}
+      {isMobile ? (
+        <>
+          {/* Mobile Panel */}
+          <div 
+            className={`absolute z-40 bg-white rounded-lg shadow-md p-3 transition-all duration-300 
+                       ${mobileMenuOpen ? 'top-14 left-2 right-2' : 'top-14 -right-full'}`}
+          >
+            {mobilePanelView === "controls" && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium mb-2">Search & Controls</h4>
+                <SearchLocation
+                  onLocationFound={(lat, lng) => {
+                    if (mapRef.current) {
+                      mapRef.current.setView([lat, lng], 10);
+                      setTimeout(() => {
+                        const newBounds = mapRef.current?.getBounds();
+                        loadMapData(newBounds);
+                      }, 500);
+                      // Close mobile panel after search
+                      setMobileMenuOpen(false);
+                    }
+                  }}
+                />
+                <div className="mt-2">
+                  <LayerControl 
+                    layers={visibleLayers} 
+                    onToggle={toggleLayer} 
+                    onClearPrediction={clearPrediction} 
+                  />
+                </div>
+              </div>
+            )}
+            {mobilePanelView === "prediction" && (
+              <div>
+                <PredictionPanel 
+                  onPredictionResult={(result) => {
+                    handlePredictionResult(result);
+                    // Close panel after prediction on mobile
+                    setMobileMenuOpen(false);
+                  }} 
+                  mapRef={mapRef}
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Mobile-optimized legend at bottom */}
+          <div className="absolute bottom-2 left-2 z-40 bg-white/95 rounded-lg shadow-md p-2 max-w-xs">
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-red-500 border border-white mr-1"></div>
+                <span className="text-xs">Hazard</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3" style={{ backgroundColor: '#3b82f6', opacity: 0.6 }}></div>
+                <span className="text-xs ml-1">Prediction</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-green-500 border border-white mr-1"></div>
+                <span className="text-xs">Good AQI</span>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Desktop Draggable Search and Layer Control Panel */}
+          <DraggableWrapper
+            handle=".drag-handle-panel"
+            bounds="parent"
+            defaultPosition={{ x: 16, y: 16 }}
+          >
+            <div className="absolute z-40 bg-white rounded-lg shadow-md p-4 w-xs pointer-events-auto">
+              <div className="drag-handle-panel cursor-move absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                <GripVertical size={16} />
+              </div>
+
+              <SearchLocation
+                onLocationFound={(lat, lng) => {
+                  if (mapRef.current) {
+                    console.log(`🚀 Location found via search: ${lat}, ${lng}. Reloading data.`);
+                    mapRef.current.setView([lat, lng], 10)
+                    setTimeout(() => {
+                      const newBounds = mapRef.current?.getBounds();
+                      loadMapData(newBounds);
+                    }, 500);
+                  }
+                }}
+              />
+              <div className="mt-4">
+                <LayerControl layers={visibleLayers} onToggle={toggleLayer} onClearPrediction={clearPrediction} />
+              </div>
+            </div>
+          </DraggableWrapper>
+
+          {/* Desktop Legend */}
+          <div className="absolute bottom-4 left-4 z-40 bg-white rounded-lg shadow-md p-3">
+            <h4 className="text-sm font-medium mb-2">Legend</h4>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-red-500 border border-white mr-2"></div>
+                <span className="text-xs">Hazard Site</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3" style={{ backgroundColor: '#3b82f6', opacity: 0.6 }}></div>
+                <span className="text-xs ml-2">Prediction Area</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-green-500 border border-white mr-2"></div>
+                <span className="text-xs">Good AQI (0-50)</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-yellow-500 border border-white mr-2"></div>
+                <span className="text-xs">Moderate AQI (51-100)</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-orange-500 border border-white mr-2"></div>
+                <span className="text-xs">Unhealthy AQI (101-150)</span>
+              </div>
+            </div>
           </div>
 
-          <SearchLocation
-            onLocationFound={(lat, lng) => {
-              if (mapRef.current) {
-                console.log(`🚀 Location found via search: ${lat}, ${lng}. Reloading data.`);
-                mapRef.current.setView([lat, lng], 10)
-                // Use a timeout to allow the map view to settle before getting bounds
-                setTimeout(() => {
-                  const newBounds = mapRef.current?.getBounds();
-                  loadMapData(newBounds);
-                }, 500); // Adjust delay as needed
-              }
-            }}
-          />
-          <div className="mt-4">
-            <LayerControl layers={visibleLayers} onToggle={toggleLayer} onClearPrediction={clearPrediction} />
+          {/* Desktop Prediction Panel */}
+          <div className="absolute bottom-4 right-4 z-40 bg-white rounded-lg shadow-md p-4 max-w-sm">
+            <PredictionPanel onPredictionResult={handlePredictionResult} mapRef={mapRef} />
           </div>
-        </div>
-      </DraggableWrapper>
+        </>
+      )}
 
       <MapContainer
         center={[39.8283, -98.5795]}
         zoom={4}
         className="h-full w-full z-10"
-        // Assign the ref directly. Remove whenReady as it doesn't take arguments
-        // and we are already capturing the map instance via the ref.
         ref={mapRef}
+        zoomControl={!isMobile} // Hide default zoom controls on mobile
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -461,40 +623,6 @@ export default function MapComponent() {
           </LayerGroup>
         )}
       </MapContainer>
-
-      {/* Legend - Moved to bottom-left */}
-      <div className="absolute bottom-4 left-4 z-40 bg-white rounded-lg shadow-md p-3">
-        <h4 className="text-sm font-medium mb-2">Legend</h4>
-        <div className="space-y-2">
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-red-500 border border-white mr-2"></div>
-            <span className="text-xs">Hazard Site</span>
-          </div>
-          {/* Add prediction polygon color to legend */}
-          <div className="flex items-center">
-            <div className="w-3 h-3" style={{ backgroundColor: '#3b82f6', opacity: 0.6 }}></div> {/* Example blue */}            
-            <span className="text-xs ml-2">Prediction Area</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-green-500 border border-white mr-2"></div>
-            <span className="text-xs">Good AQI (0-50)</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-yellow-500 border border-white mr-2"></div>
-            <span className="text-xs">Moderate AQI (51-100)</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-orange-500 border border-white mr-2"></div>
-            <span className="text-xs">Unhealthy AQI (101-150)</span>
-          </div>
-          {/* Add other AQI levels if needed */}
-        </div>
-      </div>
-
-      {/* PredictionPanel in bottom-right */}
-      <div className="absolute bottom-4 right-4 z-40 bg-white rounded-lg shadow-md p-4 max-w-sm">
-        <PredictionPanel onPredictionResult={handlePredictionResult} mapRef={mapRef} />
-      </div>
     </div>
   )
 }
