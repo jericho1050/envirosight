@@ -18,13 +18,8 @@ https://github.com/user-attachments/assets/88f51d83-548a-49a1-9c55-9fe9e502bdba
     - [2. Frontend Setup (This Repository)](#2-frontend-setup-this-repository)
   - [Environment Variables](#environment-variables)
   - [Running Locally](#running-locally)
-  - [Key Components](#key-components)
-    - [Frontend](#frontend)
-    - [Backend](#backend)
   - [API Client (`lib/api-client.ts`)](#api-client-libapi-clientts)
-  - [Mock Data \& Fallbacks](#mock-data--fallbacks)
   - [Deployment](#deployment)
-  - [Contributing](#contributing)
   - [License](#license)
 
 ## Features
@@ -53,7 +48,7 @@ The application follows a client-server architecture utilizing Supabase for back
 -   **Frontend (Client-Side):** A Next.js application responsible for rendering the user interface, managing map interactions, and communicating with the backend.
 -   **Backend (Supabase):**
     -   **Edge Functions:** Serverless functions handling data fetching from external APIs, running models, and interacting with the database. This isolates API keys and complex logic from the client.
-        -   `get-hazard-sites`: Fetches hazard site data (currently mock, intended for DB integration).
+        -   `get-hazard-sites`: Fetches hazard site data 
         -   `get-aqi-data`: Fetches AQI data from WAQI API based on geographical bounds.
         -   `get-aqi-by-city`: Fetches AQI data from WAQI API based on city name.
         -   `get-weather-data`: Fetches current weather from OpenWeatherMap API.
@@ -147,28 +142,6 @@ Once the backend is deployed and the frontend `.env` file is configured:
 
 The application should load, attempting to fetch data from your deployed Supabase Edge Functions. If the functions are not deployed or environment variables are incorrect, it will fall back to using mock data (indicated by an alert).
 
-## Key Components
-
-### Frontend
-
--   **`app/page.tsx`**: Main entry point, dynamically loads the map component.
--   **`components/map-component.tsx`**: The core component managing the Leaflet map, layers, data fetching orchestration (`loadMapData`), and state management.
--   **`components/prediction-panel.tsx`**: UI for selecting chemicals and initiating the prediction simulation. Fetches chemical options and triggers weather/prediction API calls.
--   **`components/layer-control.tsx`**: UI for toggling map layers.
--   **`components/search-location.tsx`**: Component for searching and centering the map on locations.
--   **`lib/api-client.ts`**: Contains functions for making requests to the Supabase backend (Edge Functions and Database). Handles retries and fallbacks to mock data.
--   **`lib/types.ts`**: TypeScript type definitions for data structures (HazardSite, AQIStation, etc.).
--   **`hooks/use-mobile.tsx`**: Hook to detect mobile devices for responsive layout adjustments.
-
-### Backend
-
-(See [jericho1050/envirosight-edge-functions](https://github.com/jericho1050/envirosight-edge-functions) repository)
-
--   **`functions/`**: Directory containing the Deno-based Supabase Edge Functions.
--   **`supabase/migrations/`**: SQL files defining database schema changes.
--   **`supabase/seed.sql`**: (If present) SQL file to populate initial database data.
--   **`supabase/config.toml`**: Supabase project configuration.
-
 ## API Client (`lib/api-client.ts`)
 
 This crucial file acts as the bridge between the frontend components and the backend services.
@@ -182,22 +155,10 @@ This crucial file acts as the bridge between the frontend components and the bac
     -   Implements retry logic (`retryWithBackoff`).
     -   **Crucially, falls back to returning predefined `mockHazardSites` or `mockAQIStations` if the API call fails or if certain conditions are met (e.g., invalid input, initial load with no data).** The `runPrediction` function falls back to a simplified `clientSidePrediction` calculation.
 
-## Mock Data & Fallbacks
-
-The application is designed to function even without a fully configured backend by using mock data defined within `lib/api-client.ts`.
-
--   If API calls fail (network error, 404, 500, etc.), the corresponding `fetch*` function in `api-client.ts` catches the error and returns the mock data array (`mockHazardSites`, `mockAQIStations`).
--   The `runPrediction` function falls back to a purely client-side calculation (`clientSidePrediction`) if the backend function fails.
--   An alert message is displayed on the map UI when mock data is being used. This is useful for development and demonstration purposes.
-
 ## Deployment
 
 -   **Frontend (Next.js):** Deploy to platforms like [Vercel](https://vercel.com/), [Netlify](https://www.netlify.com/), or any Node.js hosting provider. Remember to configure the `NEXT_PUBLIC_` environment variables in your deployment platform's settings.
 -   **Backend (Supabase):** The Edge Functions and database are hosted on Supabase. Ensure functions are deployed (`supabase functions deploy`) and production secrets are set via the Supabase dashboard.
-
-## Contributing
-
-Contributions are welcome! Please follow standard fork-and-pull-request workflows. Ensure code is formatted and linted (`pnpm lint`).
 
 ## License
 
