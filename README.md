@@ -50,70 +50,46 @@ The application follows a client-server architecture utilizing Supabase for back
 
 ```mermaid
 flowchart TD
-    subgraph ClientSide [Client Application (Next.js)]
-        direction LR
-        MC[MapComponent] --> LMD(loadMapData)
-        click MC call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/components/map-component.tsx#L190")
-        click LMD call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/components/map-component.tsx#L212")
-
-        LMD --> FHS(fetchHazardSites)
-        click FHS call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L41")
-        LMD --> FAQID(fetchAQIData)
-        click FAQID call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L156")
-
-        FAQID --> GLNFC(getLocationNameFromCoordinates)
-        click GLNFC call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L221")
-        GLNFC --> FAQIDBC(fetchAQIDataByCity)
-        click FAQIDBC call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L110")
-
-        PP[PredictionPanel] --> GWD(getWeatherData)
-        click PP call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/components/prediction-panel.tsx")
-        click GWD call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L251")
-        PP --> RP(runPrediction)
-        click RP call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L288")
-        PP --> FCO(fetchChemicalOptions)
-        click FCO call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L440")
-
-        RP --> CSP(clientSidePrediction)
-        click CSP call linkCallback("/Users/jerichowenzel/Desktop/EnviroSight/lib/api-client.ts#L346")
+    subgraph ClientSide
+        MC[MapComponent] --> LMD[loadMapData]
+        LMD --> FHS[fetchHazardSites]
+        LMD --> FAQID[fetchAQIData]
+        FAQID --> GLNFC[getLocationName]
+        GLNFC --> FAQIDBC[fetchAQIByCity]
+        PP[PredictionPanel] --> GWD[getWeatherData]
+        PP --> RP[runPrediction]
+        PP --> FCO[fetchChemicalOptions]
+        RP --> CSP[clientPrediction]
     end
 
-    subgraph SupabaseBackend [Supabase Backend]
-        direction LR
-        SEF_GHS[Edge Function: get-hazard-sites]
-        SEF_GAQD[Edge Function: get-aqi-data]
-        SEF_GAQDC[Edge Function: get-aqi-by-city]
-        SEF_GWD[Edge Function: get-weather-data]
-        SEF_RDP[Edge Function: run-dispersion-prediction]
-        SDB[Supabase Database (Postgres)]
+    subgraph SupabaseBackend
+        GHS[getHazardSitesFn]
+        GAQD[getAQIDataFn]
+        GAQDC[getAQIByCityFn]
+        GWDf[getWeatherDataFn]
+        RDP[runPredictionFn]
+        DB[(Database)]
     end
 
-    subgraph ExternalAPIs [External APIs]
-        direction LR
-        WAQI[World Air Quality Index (WAQI) API]
+    subgraph ExternalAPIs
+        WAQI[WAQI API]
         OWM[OpenWeatherMap API]
-        NOMINATIM[Nominatim (OpenStreetMap) API]
+        NOM[Nominatim API]
     end
 
-    FHS --> SEF_GHS
-    FAQID --> SEF_GAQD
-    FAQIDBC --> SEF_GAQDC
-    GWD --> SEF_GWD
-    RP --> SEF_RDP
-    FCO --> SDB[chemical_properties table]
+    FHS --> GHS
+    FAQID --> GAQD
+    FAQIDBC --> GAQDC
+    GWD --> GWDf
+    RP --> RDP
+    FCO --> DB
 
-    SEF_GAQD --> WAQI
-    SEF_GAQDC --> WAQI
-    SEF_GWD --> OWM
-    SEF_RDP --> SDB[chemical_properties table]
-    SEF_RDP --> SEF_GWD[Calls get-weather-data internally]
-
-    GLNFC --> NOMINATIM[Reverse Geocoding]
-
-
-    style ClientSide fill:#D6EAF8,stroke:#2874A6,stroke-width:2px
-    style SupabaseBackend fill:#D5F5E3,stroke:#1D8348,stroke-width:2px
-    style ExternalAPIs fill:#FDEDEC,stroke:#B03A2E,stroke-width:2px
+    GHS --> DB
+    GAQD --> WAQI
+    GAQDC --> WAQI
+    GWDf --> OWM
+    RDP --> GWDf
+    RDP --> DB
 ```
 
 -   **Frontend (Client-Side):** A Next.js application responsible for rendering the user interface, managing map interactions, and communicating with the backend.
