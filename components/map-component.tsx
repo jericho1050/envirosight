@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-// Import Polygon and Tooltip from react-leaflet
+// Import Polygon, Tooltip, and DraggableWrapper from react-leaflet
 import { MapContainer, TileLayer, Marker, Popup, useMap, LayerGroup, Polygon, Tooltip } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
@@ -10,9 +10,10 @@ import LayerControl from "./layer-control"
 import PredictionPanel from "./prediction-panel"
 import type { HazardSite, AQIStation, PredictionResult } from "@/lib/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, AlertCircle, Info, TriangleAlert } from "lucide-react"
+import { Loader2, AlertCircle, Info, TriangleAlert, GripVertical } from "lucide-react"
 import SearchLocation from "./search-location"
 import { Button } from "@/components/ui/button"
+import DraggableWrapper from "./draggable-wrapper"
 
 // Fix Leaflet icon issues in Next.js
 const createDefaultIcon = () => {
@@ -354,8 +355,8 @@ export default function MapComponent() {
         </Alert>
       )}
 
-      {/* MODIFIED: Data Limitations Alert - Made smaller and moved to top-left */}
-      <Alert variant="default" className="absolute top-20 left-4 z-40 max-w-[220px] py-2 px-3 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs">
+      {/* MODIFIED: Data Limitations Alert - Made smaller and with same width as legend */}
+      <Alert variant="default" className="absolute bottom-40 left-4 z-40 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs py-2 px-3 w-auto">
         <div className="flex items-start">
           <TriangleAlert className="h-3 w-3 !text-yellow-800 mt-0.5 mr-1.5" />
           <div>
@@ -367,24 +368,36 @@ export default function MapComponent() {
         </div>
       </Alert>
 
-      <div className="absolute top-4 left-4 z-40 bg-white rounded-lg shadow-md p-4 max-w-xs">
-        <SearchLocation
-          onLocationFound={(lat, lng) => {
-            if (mapRef.current) {
-              console.log(`🚀 Location found via search: ${lat}, ${lng}. Reloading data.`);
-              mapRef.current.setView([lat, lng], 10)
-              // Use a timeout to allow the map view to settle before getting bounds
-              setTimeout(() => {
-                const newBounds = mapRef.current?.getBounds();
-                loadMapData(newBounds);
-              }, 500); // Adjust delay as needed
-            }
-          }}
-        />
-        <div className="mt-4">
-          <LayerControl layers={visibleLayers} onToggle={toggleLayer} onClearPrediction={clearPrediction} />
+      {/* Draggable Search and Layer Control Panel */}
+      <DraggableWrapper
+        handle=".drag-handle-panel"
+        bounds="parent" // Keep it within the map container
+        defaultPosition={{ x: 16, y: 16 }} // Corresponds to top-4 left-4
+      >
+        <div className="absolute z-40 bg-white rounded-lg shadow-md p-4 w-2xs pointer-events-auto">
+          {/* Drag Handle */}
+          <div className="drag-handle-panel cursor-move absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+            <GripVertical size={16} />
+          </div>
+
+          <SearchLocation
+            onLocationFound={(lat, lng) => {
+              if (mapRef.current) {
+                console.log(`🚀 Location found via search: ${lat}, ${lng}. Reloading data.`);
+                mapRef.current.setView([lat, lng], 10)
+                // Use a timeout to allow the map view to settle before getting bounds
+                setTimeout(() => {
+                  const newBounds = mapRef.current?.getBounds();
+                  loadMapData(newBounds);
+                }, 500); // Adjust delay as needed
+              }
+            }}
+          />
+          <div className="mt-4">
+            <LayerControl layers={visibleLayers} onToggle={toggleLayer} onClearPrediction={clearPrediction} />
+          </div>
         </div>
-      </div>
+      </DraggableWrapper>
 
       <MapContainer
         center={[39.8283, -98.5795]}
