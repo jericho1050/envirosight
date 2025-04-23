@@ -85,15 +85,15 @@ function LocationFinder() {
         console.error("Error getting location:", error)
         setLocationStatus("error")
 
-        // Handle specific error codes
+        // Handle specific error codes (1=PERMISSION_DENIED,2=POSITION_UNAVAILABLE,3=TIMEOUT)
         switch (error.code) {
-          case error.PERMISSION_DENIED:
+          case 1:
             setErrorMessage("Location permission denied. Please enable location access in your browser settings.")
             break
-          case error.POSITION_UNAVAILABLE:
+          case 2:
             setErrorMessage("Location information is unavailable.")
             break
-          case error.TIMEOUT:
+          case 3:
             setErrorMessage("The request to get user location timed out.")
             break
           default:
@@ -361,7 +361,7 @@ export default function MapComponent() {
   return (
     <div className="relative h-screen w-full">
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50">
+        <div data-testid="map-loader" className="absolute inset-0 flex items-center justify-center bg-white/80 z-50">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <span className="ml-2">Loading map data...</span>
         </div>
@@ -414,6 +414,7 @@ export default function MapComponent() {
       {isMobile && (
         <div className="absolute top-2 right-2 z-50 flex gap-2">
           <Button 
+            data-testid="mobile-menu-button"
             variant={mobilePanelView === "controls" && mobileMenuOpen ? "default" : "outline"}
             size="sm"
             onClick={() => toggleMobilePanel("controls")}
@@ -630,10 +631,10 @@ export default function MapComponent() {
 // Prediction Polygon Component
 function PredictionPolygon({
   points,
-  properties,
+  properties = {},
 }: {
   points: [number, number][]
-  properties: Record<string, any>
+  properties?: Record<string, any>
 }) {
   const map = useMap()
 
@@ -687,16 +688,17 @@ function PredictionPolygon({
         dashArray: "5, 5",
       }}
     >
-      {/* Use Tooltip component from react-leaflet */}
+      {properties && (
       <Tooltip sticky>
         <div>
           <strong>{tooltipContent}</strong>
           <div className="text-xs mt-1">
-            Wind: {properties.windSpeed} mph at {properties.windDirection}°
+            Wind: {properties.windSpeed ?? ''} mph at {properties.windDirection ?? ''}°
           </div>
-          <div className="text-xs">Generated: {new Date(properties.timestamp).toLocaleTimeString()}</div>
+          <div className="text-xs">Generated: {properties.timestamp ? new Date(properties.timestamp).toLocaleTimeString() : ''}</div>
         </div>
       </Tooltip>
+      )}
     </Polygon>
   )
 }
